@@ -52,12 +52,18 @@ def rrd_fetch(filename, limit=50):
         'data': data[:limit]
     }
 
-@app.route('/rrd/graph/<filename>', name='rrd-graph')
+#FIXME: is it a good idea to encore start/end in url ?
+#       it helps caching past graphs, but caching current or future
+#       timespan graphs is not what we want (data will be missing then)
+#@app.route('/rrd/graph/<filename:path>/<start:int>/<end:int>')
+@app.route('/rrd/graph/<filename:path>', name='rrd-graph')
 def rrd_graph(filename):
     "Returns a graph binary from the given filename"
     #FIXME: allow graph options in query-string
     args = dict({
-        'border': '0'
+        'border': '0',
+        'start': bottle.request.params.get('start'),
+        'end': bottle.request.params.get('end')
     }.items() + bottle.request.params.items())
     #FIXME: dynamic mime-type according rrdtool imgformat
     db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
