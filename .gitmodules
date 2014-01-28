@@ -1,0 +1,9 @@
+[submodule "lib/bottle"]
+	path = lib/bottle
+	url = https://github.com/defnull/bottle.git
+[submodule "lib/pyrrdtool"]
+	path = lib/pyrrdtool
+	url = git@github.com:damiencorpataux/pyrrdtool.git
+[submodule "lib/jquery-zoomly"]
+	path = lib/jquery-zoomly
+	url = git@github.com:damiencorpataux/jquery-smokeping-zoom.git
