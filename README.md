@@ -17,6 +17,8 @@ RRD library and web-based interaction - *rrd* *l*ightest *i*nterface
 
 --
 
-The purpose is not to create a do-it-all software, <br>
+We're looking at a modular glue script, packaged - rather than an integrated monitoring tool
+
+The purpose is not to create a do-it-all magic buttons software, <br>
 it is to create small and meaningful software <br>
 that eases the road along the miles.
