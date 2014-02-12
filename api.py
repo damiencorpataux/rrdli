@@ -61,9 +61,9 @@ def rrd_fetch(filename, limit=50):
 @app.route('/rrd/graph/<filename:path>', name='rrd-graph')
 def rrd_graph(filename):
     # Response contents
-    #FIXME: dynamic mime-type according rrdtool imgformat
-    bottle.response.set_header('Content-Type', 'image/png')
-    return graph(filename)
+    g = graph(filename)
+    bottle.response.set_header('Content-Type', mimetype(g.args.get('imgformat')))
+    return g.draw()
 
 @app.route('/rrd/igraph/<filename>', name='rrd-igraph')
 @bottle.view('rrd-igraph')
@@ -81,6 +81,8 @@ def rrd_graph_stream(filename):
     #FIXME: this is all quite buggy and tends to messup the server
     #       see with paste or gevent,
     #       http://bottlepy.org/docs/dev/recipes.html#keep-alive-requests
+    #FIXME: it would be nice to have it interactive:
+    #       being able to zoom in the streamed graph
     from lib import pymjpeg
     import time
     step = float(bottle.request.query.get('step',
@@ -92,11 +94,11 @@ def rrd_graph_stream(filename):
         if k == 'Connection': continue # wsgi doesn't allow hop-by-hop headers
         bottle.response.set_header(k, v)
     while True:
-        binary = graph(filename)
+        g = graph(filename)
+        binary = g.draw()
         yield pymjpeg.boundary
         yield "\r\n"
-        #FIXME: dynamic mime-type here
-        yield 'Content-Type: image/png'
+        yield 'Content-Type: %s' % mimetype(g.args.get('imgformat'))
         yield "\r\n"
         yield 'Content-Length: %s' % len(binary)
         yield "\r\n"
@@ -127,8 +129,17 @@ def error(error):
     import json
     return json.dumps({'error': str(error.exception)})
 
+def mimetype(imgformat=None):
+    return {
+        'PNG': 'image/png',
+        'SVG': 'image/svg+xml',
+        'EPS': 'application/postscript',
+        'PDF': 'application/pdf'
+    }.get(imgformat, 'image/png')
+
 def graph(filename):
-    "Returns a graph binary from the given filename"
+    "Returns a pyrrdtool.Graph object from the given filename,"
+    "with data and style definitions"
     import style
     # Applies the optionnal style definition
     params = dict(bottle.request.params)
@@ -143,7 +154,7 @@ def graph(filename):
             for ds in db.datasources]
     style = [rrd.LINE.from_variable(variable, {'color':'555555'})
              for variable in data]
-    return rrd.Graph(data, style, args=args).draw()
+    return rrd.Graph(data, style, args=args)
 
 def setup():
     "Setup logic"
