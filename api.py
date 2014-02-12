@@ -69,7 +69,7 @@ def rrd_graph(filename):
 @bottle.view('rrd-igraph')
 def rrd_graph_interactive(filename):
     return {
-        'url': app.get_url('rrd-graph', filename=filename) 
+        'url': app.get_url('rrd-sgraph', filename=filename) 
                + '?%s' % bottle.request.query_string
     }
 
@@ -141,20 +141,22 @@ def graph(filename):
     "Returns a pyrrdtool.Graph object from the given filename,"
     "with data and style definitions"
     import style
-    # Applies the optionnal style definition
+    # Applies the optionnal graph style definition
     params = dict(bottle.request.params)
     if params.get('style'):
         stylefile = style.filename(params.get('style'), config.style_basepath)
         style = style.load(stylefile)
-        args = dict(style.get('graph').items() + params.items())
-        del args['style']
+        params = dict(style.get('graph').items() + params.items())
+        del params['style']
+    # Applies the option data style definition
+    pass
     # Creates pyrrdtool classes for graph rendering
     db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
     data = [rrd.DEF.from_variable(rrd.Variable(db, ds.name))
             for ds in db.datasources]
     style = [rrd.LINE.from_variable(variable, {'color':'555555'})
              for variable in data]
-    return rrd.Graph(data, style, args=args)
+    return rrd.Graph(data, style, args=params)
 
 def setup():
     "Setup logic"
