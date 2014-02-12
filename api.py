@@ -81,8 +81,6 @@ def rrd_graph_stream(filename):
     #FIXME: this is all quite buggy and tends to messup the server
     #       see with paste or gevent,
     #       http://bottlepy.org/docs/dev/recipes.html#keep-alive-requests
-    #FIXME: it would be nice to have it interactive:
-    #       being able to zoom in the streamed graph
     from lib import pymjpeg
     import time
     step = float(bottle.request.query.get('step',
@@ -140,22 +138,34 @@ def mimetype(imgformat=None):
 def graph(filename):
     "Returns a pyrrdtool.Graph object from the given filename,"
     "with data and style definitions"
+    #FIXME: put the graph/data style application login into the 'style' module
     import style
-    # Applies the optionnal graph style definition
     params = dict(bottle.request.params)
+    # Applies option graph and data style definition
     if params.get('style'):
         stylefile = style.filename(params.get('style'), config.style_basepath)
-        style = style.load(stylefile)
-        params = dict(style.get('graph').items() + params.items())
+        styledata = style.load(stylefile)
         del params['style']
-    # Applies the option data style definition
-    pass
+        # Applies graph style
+        params = dict(styledata.get('graph').items() + params.items())
+        # Prepares data style (this pattern sucks, FIXME...)
+        datastyle = styledata.get('data')
+
     # Creates pyrrdtool classes for graph rendering
     db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
     data = [rrd.DEF.from_variable(rrd.Variable(db, ds.name))
             for ds in db.datasources]
-    style = [rrd.LINE.from_variable(variable, {'color':'555555'})
-             for variable in data]
+    #FIXME: applies default style if no datastyle, datastyle otherwise
+    #       this implementation sucks, refactor plz.
+    try:
+        datastyle
+    except:
+        style = [rrd.LINE.from_variable(variable, {'color':'555555'})
+                 for variable in data]
+    else:
+        style = [getattr(rrd, datastyle.get(variable.vname).get('type')).from_variable(variable, datastyle.get(variable.vname))
+                 for variable in data]
+
     return rrd.Graph(data, style, args=params)
 
 def setup():
