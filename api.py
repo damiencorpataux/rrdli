@@ -59,27 +59,35 @@ def rrd_fetch(filename, limit=50):
 @app.route('/rrd/graph/<filename:path>', name='rrd-graph')
 def rrd_graph(filename):
     "Returns a graph binary from the given filename"
-    #FIXME: allow graph options in query-string
-    args = dict({
-        'border': '0',
-        'start': bottle.request.params.get('start'),
-        'end': bottle.request.params.get('end')
-    }.items() + bottle.request.params.items())
-    #FIXME: dynamic mime-type according rrdtool imgformat
+    import style
+    # Applies the optionnal style definition
+    params = dict(bottle.request.params)
+    if params.get('style'):
+        stylefile = style.filename(params.get('style'), config.style_basepath)
+        style = style.load(stylefile)
+        args = dict(style.get('graph').items() + params.items())
+        del args['style']
+        print params
+        print style
+        print args
+    # Creates pyrrdtool classes for graph rendering
     db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
     data = [rrd.DEF.from_variable(rrd.Variable(db, ds.name))
             for ds in db.datasources]
     style = [rrd.LINE.from_variable(variable, {'color':'555555'})
              for variable in data]
     # Response contents
+    #FIXME: dynamic mime-type according rrdtool imgformat
     bottle.response.set_header('Content-Type', 'image/png')
     return rrd.Graph(data, style, args=args).draw()
 
 @app.route('/rrd/igraph/<filename>', name='rrd-igraph')
-@bottle.view('igraph')
+@bottle.view('rrd-igraph')
 def rrd_igraph(filename):
-    #FIXME: modularize jquery-zoomly to allow multiple connectors (smokeping, rrdli)
-    return {'url': app.get_url('rrd-graph', filename=filename)}
+    return {
+        'url': app.get_url('rrd-graph', filename=filename) 
+               + '?%s' % bottle.request.query_string
+    }
 
 # View methods (fix route)
 @app.route('/view', name='rrd-view')
@@ -88,8 +96,8 @@ def view_rrd_list():
     rrds = [{'filename': filename,
              'info': app.get_url('rrd-info', filename=filename),
              'fetch': app.get_url('rrd-fetch', filename=filename),
-             'graph': app.get_url('rrd-graph', filename=filename)}
-             #'scroll': app.get_url('rrd-scroll', filename=filename)}
+             'graph': app.get_url('rrd-graph', filename=filename),
+             'igraph': app.get_url('rrd-igraph', filename=filename)}
                  for filename in sorted(rrd_list().get('files')) or []]
     return bottle.template('views/rrd-list', rrds=rrds)
 
@@ -100,7 +108,7 @@ def static(file):
 @bottle.error(500)
 def error(error):
     import json
-    return json.dumps({'error': error.exception.message})
+    return json.dumps({'error': str(error.exception)})
 
 # Setup logic
 def setup():

@@ -14,14 +14,23 @@ def load(filename):
         for k in keys:
             if isinstance(style[k], dict): walk(style[k])
             elif k == 'inherit':
-                f = os.path.join(os.path.dirname(filename), style[k])
+                f = globals()['filename'](style[k], os.path.dirname(filename))
                 style = merge(style, load(f))
                 del style[k]
         return style 
-
-    with open(filename) as file:
-        style = walk(json.load(file))
+    
+    try:
+        with open(filename) as file: style = walk(json.load(file))
+    except Exception as e:
+        raise Exception("Loading style '%s' failed: %s" % (filename, e))
     return style
+
+def filename(stylename, basepath=''):
+    """returns a filename from the given stylename, eg.
+    some/style            -> some/style.json
+    some/style, base/path -> base/path/some/style.json"""
+    return os.path.join(basepath, stylename + os.path.extsep + 'json')
+
 
 def merge(a, b):
     """recursively merges dict's. not just simple a['key'] = b['key'], if

@@ -1,9 +1,9 @@
 {
     "graph": {
         "border": "0",
-        "no-rrdtool-tag": true,
+        "disable-rrdtool-tag": true,
         "color": {
-            "back": "#ffffff"
+            "back": "ffffff"
         }
     }
 }

@@ -1,8 +1,7 @@
 {
-    "inherit": "parts/graph_default.json",
+    "inherit": "parts/graph_default",
     "graph": {
-        "vertical-label": "ms",
-        "color": {"canvas": "#aabbcc"}
+        "vertical-label": "ms"
     },
     "data": {
         "min": {
