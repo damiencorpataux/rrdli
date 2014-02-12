@@ -52,34 +52,61 @@ def rrd_fetch(filename, limit=50):
         'data': data[:limit]
     }
 
-#FIXME: is it a good idea to encore start/end in url ?
+#FIXME: is it a good idea to include start/end in url ?
 #       it helps caching past graphs, but caching current or future
 #       timespan graphs is not what we want (data will be missing then)
+#       note that rrd_graph could check if the served graph contains future
+#       and set Cache-Control headers accordingly.
 #@app.route('/rrd/graph/<filename:path>/<start:int>/<end:int>')
 @app.route('/rrd/graph/<filename:path>', name='rrd-graph')
 def rrd_graph(filename):
-    "Returns a graph binary from the given filename"
-    #FIXME: allow graph options in query-string
-    args = dict({
-        'border': '0',
-        'start': bottle.request.params.get('start'),
-        'end': bottle.request.params.get('end')
-    }.items() + bottle.request.params.items())
-    #FIXME: dynamic mime-type according rrdtool imgformat
-    db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
-    data = [rrd.DEF.from_variable(rrd.Variable(db, ds.name))
-            for ds in db.datasources]
-    style = [rrd.LINE.from_variable(variable, {'color':'555555'})
-             for variable in data]
     # Response contents
-    bottle.response.set_header('Content-Type', 'image/png')
-    return rrd.Graph(data, style, args=args).draw()
+    g = graph(filename)
+    bottle.response.set_header('Content-Type', mimetype(g.args.get('imgformat')))
+    return g.draw()
 
 @app.route('/rrd/igraph/<filename>', name='rrd-igraph')
-@bottle.view('igraph')
-def rrd_igraph(filename):
-    #FIXME: modularize jquery-zoomly to allow multiple connectors (smokeping, rrdli)
-    return {'url': app.get_url('rrd-graph', filename=filename)}
+@bottle.view('rrd-igraph')
+def rrd_graph_interactive(filename):
+    return {
+        'url': app.get_url('rrd-graph', filename=filename) 
+               + '?%s' % bottle.request.query_string
+    }
+
+@app.route('/rrd/sgraph/<filename>', name='rrd-sgraph')
+#@bottle.view('rrd-sgraph')
+def rrd_graph_stream(filename):
+    #FIXME: firefox wants to download the image(s)
+    #       there's an awful lag before displaying the first image
+    #FIXME: this is all quite buggy and tends to messup the server
+    #       see with paste or gevent,
+    #       http://bottlepy.org/docs/dev/recipes.html#keep-alive-requests
+    #FIXME: it would be nice to have it interactive:
+    #       being able to zoom in the streamed graph
+    from lib import pymjpeg
+    import time
+    step = float(bottle.request.query.get('step',
+               rrd.info(os.path.join(config.rrd_basepath, filename)).get('step',
+               5
+    )))
+    # Reponse headers
+    for k, v in pymjpeg.request_headers().items():
+        if k == 'Connection': continue # wsgi doesn't allow hop-by-hop headers
+        bottle.response.set_header(k, v)
+    while True:
+        g = graph(filename)
+        binary = g.draw()
+        yield pymjpeg.boundary
+        yield "\r\n"
+        yield 'Content-Type: %s' % mimetype(g.args.get('imgformat'))
+        yield "\r\n"
+        yield 'Content-Length: %s' % len(binary)
+        yield "\r\n"
+        yield 'X-Timestamp: %s' % time.time()
+        yield "\r\n\r\n"
+        yield binary
+        yield "\r\n"
+        time.sleep(step)
 
 # View methods (fix route)
 @app.route('/view', name='rrd-view')
@@ -88,8 +115,8 @@ def view_rrd_list():
     rrds = [{'filename': filename,
              'info': app.get_url('rrd-info', filename=filename),
              'fetch': app.get_url('rrd-fetch', filename=filename),
-             'graph': app.get_url('rrd-graph', filename=filename)}
-             #'scroll': app.get_url('rrd-scroll', filename=filename)}
+             'graph': app.get_url('rrd-graph', filename=filename),
+             'igraph': app.get_url('rrd-igraph', filename=filename)}
                  for filename in sorted(rrd_list().get('files')) or []]
     return bottle.template('views/rrd-list', rrds=rrds)
 
@@ -100,10 +127,37 @@ def static(file):
 @bottle.error(500)
 def error(error):
     import json
-    return json.dumps({'error': error.exception.message})
+    return json.dumps({'error': str(error.exception)})
 
-# Setup logic
+def mimetype(imgformat=None):
+    return {
+        'PNG': 'image/png',
+        'SVG': 'image/svg+xml',
+        'EPS': 'application/postscript',
+        'PDF': 'application/pdf'
+    }.get(imgformat, 'image/png')
+
+def graph(filename):
+    "Returns a pyrrdtool.Graph object from the given filename,"
+    "with data and style definitions"
+    import style
+    # Applies the optionnal style definition
+    params = dict(bottle.request.params)
+    if params.get('style'):
+        stylefile = style.filename(params.get('style'), config.style_basepath)
+        style = style.load(stylefile)
+        args = dict(style.get('graph').items() + params.items())
+        del args['style']
+    # Creates pyrrdtool classes for graph rendering
+    db = rrd.RRD.load(os.path.join(config.rrd_basepath, filename))
+    data = [rrd.DEF.from_variable(rrd.Variable(db, ds.name))
+            for ds in db.datasources]
+    style = [rrd.LINE.from_variable(variable, {'color':'555555'})
+             for variable in data]
+    return rrd.Graph(data, style, args=args)
+
 def setup():
+    "Setup logic"
     # Ensures rrd container path exists
     path = config.rrd_basepath
     try:

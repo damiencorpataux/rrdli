@@ -1,0 +1,20 @@
+{
+    "inherit": "parts/graph_default",
+    "graph": {
+        "vertical-label": "ms"
+    },
+    "data": {
+        "min": {
+            "type": "LINE",
+            "color": "00ff00"
+        },
+        "max": {
+            "type": "LINE",
+            "color": "ff0000"
+        },
+        "avg": {
+            "type": "LINE",
+            "color": "0000ff"
+        }
+    }
+}

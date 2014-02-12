@@ -43,7 +43,7 @@
       <ul>
       <!-- rrd summary -->
       <!-- urls list -->
-      % for command, url in [(k, rrd[k]) for k in ['info', 'fetch', 'graph']]:
+      % for command, url in [(k, rrd[k]) for k in ['info', 'fetch', 'graph', 'igraph']]:
         <li>
           {{command}}: <a href="{{url}}">{{url}}</a>
         </li>
