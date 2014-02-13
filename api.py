@@ -81,28 +81,36 @@ def rrd_graph_stream(filename):
     #FIXME: this is all quite buggy and tends to messup the server
     #       see with paste or gevent,
     #       http://bottlepy.org/docs/dev/recipes.html#keep-alive-requests
-    from lib import pymjpeg
     import time
     step = float(bottle.request.query.get('step',
                rrd.info(os.path.join(config.rrd_basepath, filename)).get('step',
                5
     )))
     # Reponse headers
-    for k, v in pymjpeg.request_headers().items():
-        if k == 'Connection': continue # wsgi doesn't allow hop-by-hop headers
-        bottle.response.set_header(k, v)
+    boundary = '--boundarydonotcross'
+    headers = {
+        'Max-Age': 0,
+        'Expires': 0,
+        'Cache-Control': 'no-cache, private',
+        'Pragma': 'no-cache',
+        'Content-Type': 'multipart/x-mixed-replace; boundary=%s' % boundary,
+        #'Transfer-Encoding': 'chunked'
+    }
+    for k, v in headers.items(): bottle.response.set_header(k, v)
+    yield boundary
+    yield "\r\n"
     while True:
         g = graph(filename)
         binary = g.draw()
-        yield pymjpeg.boundary
-        yield "\r\n"
         yield 'Content-Type: %s' % mimetype(g.args.get('imgformat'))
         yield "\r\n"
         yield 'Content-Length: %s' % len(binary)
-        yield "\r\n"
-        yield 'X-Timestamp: %s' % time.time()
+        #yield "\r\n"
+        #yield 'X-Timestamp: %s' % time.time()
         yield "\r\n\r\n"
         yield binary
+        yield "\r\n"
+        yield boundary
         yield "\r\n"
         time.sleep(step)
 

@@ -7,6 +7,3 @@
 [submodule "lib/jquery-zoomly"]
 	path = lib/jquery-zoomly
 	url = git@github.com:damiencorpataux/jquery-smokeping-zoom.git
-[submodule "lib/pymjpeg"]
-	path = lib/pymjpeg
-	url = git@github.com:damiencorpataux/pymjpeg.git

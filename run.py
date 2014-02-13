@@ -8,6 +8,5 @@ import api
 
 # Server instance
 #bottle.run(api.app, host='0.0.0.0', port=8000, reloader=True, debug=True)
-import paste
 from paste import httpserver
 bottle.run(server='paste', host='0.0.0.0', port='8000')
